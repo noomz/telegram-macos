@@ -9,10 +9,10 @@ public final class ApiEnvironment {
     }
     
     public static var bundleId: String {
-        return "ru.keepcoder.Telegram"
+        return "space.noomz.Telegram"
     }
     public static var teamId: String {
-        return "6N38VWS5BX"
+        return "W6P9Y44LWU"
     }
     
     
