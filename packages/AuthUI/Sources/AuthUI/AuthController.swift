@@ -468,7 +468,14 @@ public class AuthController : GenericViewController<AuthView> {
                     return engine.auth.exportAuthTransferToken(accountManager: sharedContext.accountManager, otherAccountUserIds: accounts.accounts.map { $0.1.peerId.id }, syncContacts: false)
                 }
                 
-                self?.tokenDisposable.set(tokenSignal.start(next: { result in
+                self?.tokenDisposable.set((tokenSignal |> retry(retryOnError: { error in
+                    switch error {
+                    case .generic:
+                        return true
+                    case .limitExceeded:
+                        return false
+                    }
+                }, delayIncrement: 1.0, maxDelay: 5.0, maxRetries: nil, onQueue: .mainQueue())).start(next: { result in
                     updateState { current in
                         var current = current
                         current.tokenResult = result
@@ -609,6 +616,9 @@ public class AuthController : GenericViewController<AuthView> {
             currentState = .empty
         }
         
+        if !state.tokenAvailable || !state.qrEnabled || state.lockAfterLogin {
+            self.tokenDisposable.set(nil)
+        }
         if state.lockAfterLogin {
             return
         }
@@ -700,9 +710,9 @@ public class AuthController : GenericViewController<AuthView> {
                     // Only show passkey button if passkey window was dismissed by user
                     token_c.updatePasskeyAvailable(state.passkeyChallengeData != nil && state.passkeyWindowDismissed)
                     #endif
+                    refreshToken()
                 }
             }
-            refreshToken()
         } else {
             switch currentState {
             case .phoneEntry, .empty:
