@@ -19,10 +19,22 @@ public final class ApiEnvironment {
     
     public static var containerURL: URL? {
         let appGroupName = ApiEnvironment.group
-        let containerUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)?.appendingPathComponent(prefix)
-        if let containerUrl = containerUrl {
+        var candidates: [URL] = []
+        if let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName) {
+            candidates.append(group.appendingPathComponent(prefix))
+        }
+        // Local/dev builds signed without a matching team (e.g. ad-hoc) get a group container
+        // that exists but is not writable; fall back to Application Support in that case.
+        if let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            candidates.append(base.appendingPathComponent(bundleId + "-dev").appendingPathComponent(prefix))
+        }
+        for containerUrl in candidates {
             try? FileManager.default.createDirectory(at: containerUrl, withIntermediateDirectories: true, attributes: nil)
-            return containerUrl
+            let probe = containerUrl.appendingPathComponent(".writetest")
+            if (try? Data().write(to: probe)) != nil {
+                try? FileManager.default.removeItem(at: probe)
+                return containerUrl
+            }
         }
         return nil
     }
